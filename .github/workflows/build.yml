@@ -50,24 +50,17 @@ jobs:
           repository: ffasfsgfasga-art/android_kernel_xiaomi_sm8250
           fetch-depth: 1
 
-      - name: Clean 磁盘空间
+      - name: 清理磁盘空间
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-      - name: 安装依赖
+      - name: 安装编译依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git curl wget bison flex zip bc cpio libssl-dev ccache python3 unzip
-
-      - name: 下载编译工具链
-        run: |
-          mkdir -p $HOME/zyc-clang
-          cd $HOME/zyc-clang
-          wget -q https://github.com/ZyCromerZ/Clang/releases/download/16.0.6-20230214/Clang-16.0.6-20230214.tar.gz
-          tar -xf Clang-16.0.6-20230214.tar.gz
 
       - name: 缓存ccache
         uses: actions/cache@v5
@@ -77,24 +70,24 @@ jobs:
           restore-keys: |
             kernel-ccache-${{ inputs.device }}-
 
-      - name: 提前下载AnyKernel3
+      - name: 提前准备AnyKernel3
         run: |
           wget https://mirror.ghproxy.com/https://github.com/AstridLabs/AnyKernel3/archive/refs/heads/master.zip -O ak3.zip
           unzip -q ak3.zip
           mv AnyKernel3-master anykernel3
           rm -f ak3.zip
 
-      - name: 开始编译
+      - name: 执行编译脚本
         run: |
           chmod +x ${{ inputs.script }}
-          echo "脚本：${{ inputs.script }}"
+          echo "开始编译，设备：${{ inputs.device }}，脚本：${{ inputs.script }}"
           if [ "${{ inputs.ksu }}" = "true" ]; then
             bash ${{ inputs.script }} ${{ inputs.device }} ksu
           else
             bash ${{ inputs.script }} ${{ inputs.device }}
           fi
 
-      - name: 上传内核包
+      - name: 上传内核刷机包
         uses: actions/upload-artifact@v4
         with:
           name: Kernel-${{ inputs.device }}-${{ inputs.script }}-${{ inputs.ksu && 'KSU' || 'NoKSU' }}-${{ github.run_number }}
