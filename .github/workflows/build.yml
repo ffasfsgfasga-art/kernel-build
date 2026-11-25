@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       device:
-        description: 'Target Device Codename (e.g., lmi, umi)'
+        description: 'Target Device Codename (e.g. lmi, umi)'
         required: true
         default: 'lmi'
         type: choice
@@ -35,8 +35,8 @@ on:
       ksu:
         description: 'Enable KernelSU (ReSukiSU-SuSFS)'
         required: true
-        type: boolean
         default: true
+        type: boolean
 
 jobs:
   build:
@@ -44,63 +44,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Source
-      uses: actions/checkout@v6
-      with:
-        fetch-depth: 1
+      - name: Checkout 内核源码
+        uses: actions/checkout@v6
+        with:
+          repository: ffasfsgfasga-art/android_kernel_xiaomi_sm8250
+          fetch-depth: 1
 
-    - name: Cleanup Disk Space
-      run: |
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /opt/ghc
-        sudo rm -rf "/usr/local/share/boost"
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+      - name: Clean 磁盘空间
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential git curl wget bison flex zip bc cpio libssl-dev ccache python-is-python3 unzip
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl wget bison flex zip bc cpio libssl-dev ccache python3 unzip
 
-    - name: Setup Cache (ccache)
-      uses: actions/cache@v5
-      with:
-        path: ~/.cache/ccache_mikernel
-        key: kernel-ccache-${{ inputs.device }}-${{ inputs.script }}-${{ github.run_id }}
-        restore-keys: |
-          kernel-ccache-${{ inputs.device }}-${{ inputs.script }}-
-          kernel-ccache-${{ inputs.device }}-
-          kernel-ccache-
+      - name: 下载编译工具链
+        run: |
+          mkdir -p $HOME/zyc-clang
+          cd $HOME/zyc-clang
+          wget -q https://github.com/ZyCromerZ/Clang/releases/download/16.0.6-20230214/Clang-16.0.6-20230214.tar.gz
+          tar -xf Clang-16.0.6-20230214.tar.gz
 
-    - name: Setup Toolchain (ZyC-Clang 16)
-      run: |
-        mkdir -p $HOME/zyc-clang
-        cd $HOME/zyc-clang
-        wget -q https://github.com/ZyCromerZ/Clang/releases/download/16.0.6-20260510-release/Clang-16.0.6-20260510.tar.gz
-        tar -zxvf Clang-16.0.6-20260510.tar.gz
+      - name: 缓存ccache
+        uses: actions/cache@v5
+        with:
+          path: ~/.ccache
+          key: kernel-ccache-${{ inputs.device }}-${{ github.run_id }}
+          restore-keys: |
+            kernel-ccache-${{ inputs.device }}-
 
-    - name: Build Kernel
-      run: |
-        chmod +x build.sh build-miui.sh
+      - name: 提前下载AnyKernel3
+        run: |
+          wget https://mirror.ghproxy.com/https://github.com/AstridLabs/AnyKernel3/archive/refs/heads/master.zip -O ak3.zip
+          unzip -q ak3.zip
+          mv AnyKernel3-master anykernel3
+          rm -f ak3.zip
 
-        # 提前下载 AnyKernel3，规避 git clone 用户名报错
-        wget https://mirror.ghproxy.com/https://github.com/AstridLabs/AnyKernel3/archive/refs/heads/master.zip -O ak3.zip
-        unzip -q ak3.zip
-        mv AnyKernel3-master anykernel3
-        rm -f ak3.zip
-        
-        echo "Using script: ${{ inputs.script }}"
+      - name: 开始编译
+        run: |
+          chmod +x ${{ inputs.script }}
+          echo "脚本：${{ inputs.script }}"
+          if [ "${{ inputs.ksu }}" = "true" ]; then
+            bash ${{ inputs.script }} ${{ inputs.device }} ksu
+          else
+            bash ${{ inputs.script }} ${{ inputs.device }}
+          fi
 
-        if [ "${{ inputs.ksu }}" == "true" ]; then
-          echo "Building with KernelSU..."
-          bash ${{ inputs.script }} ${{ inputs.device }} ksu
-        else
-          echo "Building without KernelSU..."
-          bash ${{ inputs.script }} ${{ inputs.device }}
-        fi
-
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v6
-      with:
-        name: Kernel-${{ inputs.device }}-${{ inputs.script }}-${{ inputs.ksu && 'KSU' || 'NoKSU' }}-${{ github.run_number }}
-        path: ./*.zip
-        if-no-files-found: error
+      - name: 上传内核包
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-${{ inputs.device }}-${{ inputs.script }}-${{ inputs.ksu && 'KSU' || 'NoKSU' }}-${{ github.run_number }}
+          path: ./*.zip
+          if-no-files-found: error
