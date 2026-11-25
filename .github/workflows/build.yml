@@ -62,6 +62,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential git curl wget bison flex zip bc cpio libssl-dev ccache python3 unzip
 
+      - name: 下载 ZyC Clang 到脚本指定路径
+        run: |
+          mkdir -p $HOME/zyc-clang
+          cd $HOME/zyc-clang
+          wget --no-check-certificate https://github.com/ZyCromerZ/Clang/releases/download/16.0.6-20230214/Clang-16.0.6-20230214.tar.gz
+          tar -xf Clang-16.0.6-20230214.tar.gz
+
       - name: 缓存ccache
         uses: actions/cache@v5
         with:
